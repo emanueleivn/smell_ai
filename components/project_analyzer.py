@@ -20,18 +20,15 @@ class ProjectAnalyzer:
         Parameters:
         - output_path (str): Directory where analysis results will be saved.
         """
-        self.base_output_path = output_path
-        self.output_path = os.path.join(output_path, "output")
-
-        FileUtils.clean_directory(self.base_output_path, "output")
-
+        self.output_path = output_path
+        FileUtils.clean_directory(self.output_path)
         self.inspector = Inspector(self.output_path)
 
     def clean_output_directory(self):
         """
         Cleans or creates the output directory for analysis results.
         """
-        FileUtils.clean_directory(self.base_output_path, "output")
+        FileUtils.clean_directory(self.output_path)
 
     def _save_results(self, df: pd.DataFrame, filename: str):
         """

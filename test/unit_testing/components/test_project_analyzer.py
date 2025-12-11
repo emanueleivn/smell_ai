@@ -440,12 +440,19 @@ def test_analyze_project_empty_directory(
 ):
     """
     Test `analyze_project` when no Python files exist in the directory.
+    Should raise ValueError with appropriate message.
     """
     output_dir = tmp_path / "output"
 
     if output_dir.exists():
         shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True)
+
+    # Create a mock FileUtils class that returns empty list
+    class MockFileUtils:
+        @staticmethod
+        def get_python_files(path):
+            return []
 
     monkeypatch.setattr(
         "components.project_analyzer.ProjectAnalyzer._save_results",
@@ -454,15 +461,17 @@ def test_analyze_project_empty_directory(
         ),
     )
 
-    # Mock get_python_files to return an empty list
-    monkeypatch.setattr(
-        "utils.file_utils.FileUtils.get_python_files", lambda _: []
-    )
-
-    # Run the method
-    total_smells = project_analyzer.analyze_project(
-        "test/unit_testing/components/mock_project_path"
-    )
-
-    # Assert that no smells are found
-    assert total_smells == 0
+    # Mock FileUtils.get_python_files at the module level where it's imported
+    from components import project_analyzer as pa_module
+    original_file_utils = pa_module.FileUtils
+    pa_module.FileUtils = MockFileUtils
+    
+    try:
+        # Run the method - should raise ValueError for empty directory
+        with pytest.raises(ValueError, match="contains no Python files"):
+            project_analyzer.analyze_project(
+                "test/unit_testing/components/mock_project_path"
+            )
+    finally:
+        # Restore original FileUtils
+        pa_module.FileUtils = original_file_utils

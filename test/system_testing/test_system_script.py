@@ -2,13 +2,13 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Union, Optional
+import sys
 
 import pandas as pd
 import pytest
 
 # Base directory che contiene le cartelle TC_01 .. TC_20
-BASE_DIR = Path(__file__).resolve().parent / "system_testing"
-
+BASE_DIR = Path(__file__).resolve().parent
 TestConfig = Dict[str, Union[str, bool, int, List[str]]]
 
 
@@ -292,10 +292,8 @@ def test_system_case(tc_dir: str) -> None:
     tc_path = BASE_DIR / tc_dir
     config = TEST_CASES[tc_dir]
 
-    # 1) Preparazione cartella di output
-    output_dir = tc_path / "output"
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
+    # 1) Preparazione cartella di output DEDICATA PER TC
+    output_dir = BASE_DIR / "output" / tc_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 2) Gestione permessi non leggibili (OUT2 o SP3)
@@ -313,8 +311,9 @@ def test_system_case(tc_dir: str) -> None:
         locked_paths.append((target, original_mode))
 
     # 3) Costruzione del comando CLI
+
     cmd: List[str] = [
-        "python",
+        sys.executable,
         "-m",
         "cli.cli_runner",
         "--input",
@@ -334,12 +333,16 @@ def test_system_case(tc_dir: str) -> None:
         cmd.append("--multiple")
 
     # Esecuzione dal root del repository (adatta se necessario)
-    repo_root = Path(__file__).resolve().parent.parent
+    repo_root = Path(__file__).resolve().parents[2]
+    import os
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root)
     completed = subprocess.run(
         cmd,
         capture_output=True,
         text=True,
         cwd=repo_root,
+        env=env,
     )
 
     # 4) Ripristino permessi
@@ -361,8 +364,8 @@ def test_system_case(tc_dir: str) -> None:
         f"Stderr:\n{completed.stderr}"
     )
 
-    # 6) Verifica oracolo: numero di smell tramite overview.csv
-    overview = output_dir / "output" / "overview.csv"
+    # 6) Verifica oracolo: numero di smell tramite overview.csv UNICO
+    overview = output_dir / "overview.csv"
     expected_smells = config.get("expected_smells")
 
     # expected_smells = None => nessun report di smell previsto
