@@ -173,7 +173,7 @@ def test_clean_output_directory(monkeypatch, project_analyzer):
 
     # Assertions
     mock_clean_directory.assert_called_once_with(
-        project_analyzer.base_output_path, "output"
+        project_analyzer.output_path
     )
 
 
@@ -317,7 +317,8 @@ def test_analyze_project_with_errors(
     )
 
     # Check if the error is logged to the error.txt file
-    error_file = output_dir / "error.txt"
+    # ProjectAnalyzer writes error.txt to self.output_path (tmp_path)
+    error_file = tmp_path / "error.txt"
     with open(error_file, "r") as f:
         error_content = f.read()
 
@@ -368,7 +369,8 @@ def test_analyze_projects_sequential_save_results(
     )
 
     # Check if project_details directory and the result file were created
-    details_path = output_dir / "project_details"
+    # ProjectAnalyzer writes project_details to self.output_path (tmp_path)
+    details_path = tmp_path / "project_details"
     assert details_path.exists()
 
     detailed_file_path = details_path / "project1_results.csv"
@@ -475,3 +477,35 @@ def test_analyze_project_empty_directory(
     finally:
         # Restore original FileUtils
         pa_module.FileUtils = original_file_utils
+
+
+def test_generate_call_graph(
+    monkeypatch, project_analyzer, mock_file_related_methods, tmp_path
+):
+    """
+    Test the `generate_call_graph` method.
+    """
+    output_dir = tmp_path / "output"
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+    output_dir.mkdir(parents=True)
+    
+    # Mock CallGraphGenerator
+    mock_generator_instance = MagicMock()
+    mock_generator_instance.generate.return_value = {"nodes": [], "edges": []}
+    mock_CallGraphGenerator = MagicMock(return_value=mock_generator_instance)
+    
+    # Patch the class where it's imported in project_analyzer.py
+    with patch("components.project_analyzer.CallGraphGenerator", mock_CallGraphGenerator):
+        project_analyzer.generate_call_graph("mock_project_path")
+        
+        # Verify Generator init and generate calls
+        mock_CallGraphGenerator.assert_called_once_with("mock_project_path")
+        # FileUtils.get_python_files is mocked by fixture to return ["file1.py"]
+        mock_generator_instance.generate.assert_called_once_with(["file1.py"])
+        
+        # Verify output file creation
+        # ProjectAnalyzer writes to self.output_path which is str(tmp_path)
+        expected_file = tmp_path / "call_graph.json"
+        assert expected_file.exists()
+
