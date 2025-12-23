@@ -4,7 +4,9 @@ import threading
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from components.inspector import Inspector
+from components.call_graph_generator import CallGraphGenerator
 from utils.file_utils import FileUtils
+import json
 
 
 class ProjectAnalyzer:
@@ -311,3 +313,20 @@ class ProjectAnalyzer:
             input_dir=os.path.join(self.output_path, "project_details"),
             output_dir=self.output_path,
         )
+
+    def generate_call_graph(self, project_path: str):
+        """
+        Generates and saves the call graph for the project.
+        """
+        print(f"Generating call graph for project: {project_path}")
+        filenames = FileUtils.get_python_files(project_path)
+        
+        generator = CallGraphGenerator(project_path)
+        graph_data = generator.generate(filenames)
+        
+        output_file = os.path.join(self.output_path, "call_graph.json")
+        os.makedirs(self.output_path, exist_ok=True)
+        
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(graph_data, f, indent=4)
+        print(f"Call graph saved to {output_file}")

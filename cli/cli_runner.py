@@ -64,6 +64,12 @@ class CodeSmileCLI:
                 f"Analysis completed. Total code smells found: {total_smells}"
             )
 
+        if self.args.callgraph:
+            if self.args.multiple:
+                print("Call Graph generation is not supported for multiple projects mode yet.")
+            else:
+                self.analyzer.generate_call_graph(self.args.input)
+
         if self.args.multiple:
             self.analyzer.merge_all_results()
 
@@ -101,6 +107,11 @@ def main():
         "--multiple",
         action="store_true",
         help="Analyze multiple projects (default: False)",
+    )
+    parser.add_argument(
+        "--callgraph",
+        action="store_true",
+        help="Generate call graph for the analyzed project (default: False)",
     )
 
     # Parse arguments

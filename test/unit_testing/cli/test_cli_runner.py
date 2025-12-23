@@ -259,3 +259,50 @@ def test_execute_with_invalid_max_walkers_and_parallel(mock_analyzer):
         ValueError, match="max_walkers must be greater than 0."
     ):
         cli.execute()
+
+
+def test_execute_with_callgraph(mock_analyzer):
+    args = MagicMock()
+    args.input = "mock_input"
+    args.output = "mock_output"
+    args.parallel = False
+    args.resume = False
+    args.multiple = False
+    args.max_walkers = 5
+    args.callgraph = True
+
+    mock_analyzer.analyze_project.return_value = 2
+    mock_analyzer.generate_call_graph = MagicMock()
+
+    cli = CodeSmileCLI(args)
+    cli.analyzer = mock_analyzer
+
+    with patch("builtins.print") as mock_print:
+        cli.execute()
+
+        mock_analyzer.analyze_project.assert_called_once_with("mock_input")
+        mock_analyzer.generate_call_graph.assert_called_once_with("mock_input")
+
+
+def test_execute_with_callgraph_and_multiple(mock_analyzer):
+    args = MagicMock()
+    args.input = "mock_input"
+    args.output = "mock_output"
+    args.parallel = False
+    args.resume = False
+    args.multiple = True
+    args.max_walkers = 5
+    args.callgraph = True
+
+    mock_analyzer.analyze_projects_parallel.return_value = None
+    mock_analyzer.merge_all_results.return_value = None
+    mock_analyzer.generate_call_graph = MagicMock()
+
+    cli = CodeSmileCLI(args)
+    cli.analyzer = mock_analyzer
+
+    with patch("builtins.print") as mock_print:
+        cli.execute()
+
+        mock_analyzer.generate_call_graph.assert_not_called()
+        mock_print.assert_any_call("Call Graph generation is not supported for multiple projects mode yet.")
