@@ -84,6 +84,17 @@ export default function Home() {
                 <FaInfoCircle className="text-white text-2xl" />
               </button>
             </div>
+
+            {/* Call Graph Button */}
+            <div className="flex justify-center sm:col-span-2 lg:col-span-2">
+              <button
+                onClick={() => router.push('/call-graph')}
+                className="flex items-center justify-between w-full sm:w-80 bg-purple-600 text-white px-6 py-4 rounded-xl shadow-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-300 transition-all transform hover:scale-105"
+              >
+                <span className="text-xl">Interactive Call Graph</span>
+                <FaChartBar className="text-white text-2xl" />
+              </button>
+            </div>
           </div>
         </div>
       </main>

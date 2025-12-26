@@ -49,4 +49,4 @@ echo "$PID_GW" > minimal_services.pids
 echo "$PID_SA" >> minimal_services.pids
 echo "$PID_REP" >> minimal_services.pids
 
-echo "[Ready] System ready for TC_17..TC_20 testing."
+echo "[Ready] System ready!"

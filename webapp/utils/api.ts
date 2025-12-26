@@ -24,9 +24,9 @@ export async function detectAi(codeSnippet: string): Promise<DetectResponse> {
         });
 
         return {
-                success: response.data.success ? response.data.success : false,
-                smells: Array.isArray(response.data.smells) ? response.data.smells : [],
-            };
+            success: response.data.success ? response.data.success : false,
+            smells: Array.isArray(response.data.smells) ? response.data.smells : [],
+        };
     } catch (error) {
         return handleErrorResponse(error, {
             success: false,
@@ -44,13 +44,13 @@ export async function detectStatic(codeSnippet: string): Promise<DetectResponse>
         });
 
         return {
-                success: response.data.success ? response.data.success : false,
-                smells: Array.isArray(response.data.smells) ? response.data.smells : [],
-            };
-            
+            success: response.data.success ? response.data.success : false,
+            smells: Array.isArray(response.data.smells) ? response.data.smells : [],
+        };
+
     } catch (error) {
-        return handleErrorResponse(error, 
-            {  success: false, smells: null, message: "Error detecting code smells."});
+        return handleErrorResponse(error,
+            { success: false, smells: null, message: "Error detecting code smells." });
     }
 }
 
@@ -62,5 +62,35 @@ export async function generateReport(projects: any[]): Promise<GenerateReportRes
         return response.data;
     } catch (error) {
         return handleErrorResponse(error, { report_data: null, message: "Error generating reports." });
+    }
+}
+
+// Call Graph detection
+export async function detectCallGraph(payload: string | File): Promise<any> {
+    try {
+        if (payload instanceof File) {
+            const formData = new FormData();
+            formData.append("file", payload);
+            formData.append("include_call_graph", "true");
+
+            const response = await axiosInstance.post(`${API_URL}/detect_call_graph`, formData, {
+                headers: { "Content-Type": "multipart/form-data" }
+            });
+            return response.data;
+        } else {
+            // String payload
+            const response = await axiosInstance.post(`${API_URL}/detect_call_graph`, {
+                code_snippet: payload,
+                include_call_graph: true
+            });
+            return response.data;
+        }
+    } catch (error) {
+        return handleErrorResponse(error, {
+            success: false,
+            smells: [],
+            call_graph: null,
+            message: "Error detecting call graph."
+        });
     }
 }

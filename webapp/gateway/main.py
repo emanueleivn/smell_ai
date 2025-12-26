@@ -1,6 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request, Depends, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 import httpx
+import uvicorn
+import asyncio
+import os
+import json
 
 app = FastAPI()
 
@@ -49,12 +54,39 @@ async def detect_smell_ai(request: dict):
 
 
 # Proxy requests to Static Analysis Service
+# Proxy requests to Static Analysis Service
 @app.post("/api/detect_smell_static")
 async def detect_smell_static(request: dict):
     async with httpx.AsyncClient() as client:
         response = await client.post(
             f"{STATIC_ANALYSIS_SERVICE}/detect_smell_static", json=request
         )
+    return response.json()
+
+
+@app.post("/api/detect_call_graph")
+async def detect_call_graph(
+    request: Request,
+    file: UploadFile = File(None),
+    code_snippet: str = Form(None),
+    include_call_graph: bool = Form(True)
+):
+    async with httpx.AsyncClient() as client:
+        if file:
+            files = {"file": (file.filename, await file.read(), file.content_type)}
+            response = await client.post(
+                f"{STATIC_ANALYSIS_SERVICE}/detect_call_graph",
+                files=files,
+                data={"include_call_graph": str(include_call_graph)}
+            )
+        else:
+            response = await client.post(
+                f"{STATIC_ANALYSIS_SERVICE}/detect_call_graph",
+                json={
+                    "code_snippet": code_snippet,
+                    "include_call_graph": include_call_graph
+                }
+            )
     return response.json()
 
 

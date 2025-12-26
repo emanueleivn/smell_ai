@@ -38,3 +38,22 @@ class DetectSmellStaticResponse(BaseModel):
                 ],
             }
         }
+class DetectCallGraphResponse(BaseModel):
+    """
+    Schema for the response including call graph.
+    """
+    success: bool
+    smells: Optional[Union[List[Smell], str]] = []
+    call_graph: Optional[dict] = None  # Added for CR-03
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "success": True,
+                "smells": [],
+                "call_graph": {
+                    "nodes": [],
+                    "edges": []
+                }
+            }
+        }
