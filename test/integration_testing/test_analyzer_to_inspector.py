@@ -50,7 +50,7 @@ def test_project_analyzer_calls_inspect(
 
     assert total_smells == 2
 
-    result_file = os.path.join(output_path, "output", "overview.csv")
+    result_file = os.path.join(output_path, "overview.csv")
     assert os.path.exists(result_file)
 
     df = pd.read_csv(result_file)

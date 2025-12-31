@@ -21,7 +21,7 @@ describe('Report Generator Page (E2E)', () => {
 
     it('should display header, footer, and essential components', () => {
         cy.visit('http://localhost:3000/reports');
-        
+
         cy.get('header').should('exist');
         cy.get('footer').should('exist');
 
@@ -78,7 +78,7 @@ describe('Report Generator Page (E2E)', () => {
         cy.visit('http://localhost:3000/reports');
 
         cy.window().should('have.property', '__REACT_CONTEXT__').and('not.be.undefined');
-    
+
         cy.window().then((win: Cypress.CustomWindow) => {
             const context = win.__REACT_CONTEXT__;
             if (context) {
@@ -105,7 +105,21 @@ describe('Report Generator Page (E2E)', () => {
 
         cy.contains('Total Projects Available: 1', { timeout: 15000 }).should('exist');
 
+        // Mock the API success response
+        cy.intercept('POST', '/api/generate_report', {
+            statusCode: 200,
+            body: {
+                report_data: {
+                    "model_training_and_evaluaiton": [
+                        { name: "Unnecessary DataFrame Operation", value: 1 }
+                    ]
+                }
+            }
+        }).as('generateReport');
+
         cy.contains('Generate Report').click();
+
+        cy.wait('@generateReport');
 
         cy.get('#chart-div', { timeout: 10000 }).should('exist');
 
@@ -174,7 +188,7 @@ describe('Report Generator Page (E2E)', () => {
                         files: [],
                         message: "empty project",
                         result: null,
-                        smells: null, 
+                        smells: null,
                     },
                 });
             }

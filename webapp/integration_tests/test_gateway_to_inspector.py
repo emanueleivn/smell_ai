@@ -15,6 +15,7 @@ def test_gateway_to_static_analysis_no_smell():
 
     assert response.status_code == 200
     assert response.json() == {
+        "success": True,
         "smells": 'Static analysis returned no data'
     }
 
@@ -45,6 +46,8 @@ def save_as_csv(
                 "smell_name": "columns_and_datatype_not_explicitly_set",
                 "description": "Pandas' DataFrame or read_csv methods should explicitlyset 'dtype' to avoid unexpected behavior.",
                 "additional_info": "Missing explicit 'dtype'in DataFrame call.",
+                "file": None,
+                "filename": None,
             },
             {
                 "function_name": "save_as_csv",
@@ -52,8 +55,11 @@ def save_as_csv(
                 "smell_name": "columns_and_datatype_not_explicitly_set",
                 "description": "Pandas' DataFrame or read_csv methods should explicitlyset 'dtype' to avoid unexpected behavior.",
                 "additional_info": "Missing explicit 'dtype'in DataFrame call.",
+                "file": None,
+                "filename": None,
             },
-        ]
+        ],
+        "success": True
     }
     response = client.post("/api/detect_smell_static", json=test_payload)
     print(f"Response json: ", response.json())

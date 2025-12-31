@@ -55,7 +55,7 @@ def test_full_integration_with_cli(mock_rule_check, integration_setup):
 
     cli.execute()
 
-    result_file = os.path.join(output_path, "output", "overview.csv")
+    result_file = os.path.join(output_path, "overview.csv")
     assert os.path.exists(result_file), f"File {result_file} non trovato"
 
     df = pd.read_csv(result_file)

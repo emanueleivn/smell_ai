@@ -12,6 +12,8 @@ class Smell(BaseModel):
     smell_name: str
     description: str
     additional_info: str
+    file: Optional[str] = None
+    filename: Optional[str] = None
 
 
 class DetectSmellStaticResponse(BaseModel):
@@ -36,5 +38,24 @@ class DetectSmellStaticResponse(BaseModel):
                         "Consider removing or optimizing the operation.",
                     }
                 ],
+            }
+        }
+class DetectCallGraphResponse(BaseModel):
+    """
+    Schema for the response including call graph.
+    """
+    success: bool
+    smells: Optional[Union[List[Smell], str]] = []
+    call_graph: Optional[dict] = None  
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "success": True,
+                "smells": [],
+                "call_graph": {
+                    "nodes": [],
+                    "edges": []
+                }
             }
         }
