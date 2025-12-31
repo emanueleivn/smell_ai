@@ -12,6 +12,8 @@ class Smell(BaseModel):
     smell_name: str
     description: str
     additional_info: str
+    file: Optional[str] = None
+    filename: Optional[str] = None
 
 
 class DetectSmellStaticResponse(BaseModel):
@@ -44,7 +46,7 @@ class DetectCallGraphResponse(BaseModel):
     """
     success: bool
     smells: Optional[Union[List[Smell], str]] = []
-    call_graph: Optional[dict] = None  # Added for CR-03
+    call_graph: Optional[dict] = None  
 
     class Config:
         schema_extra = {

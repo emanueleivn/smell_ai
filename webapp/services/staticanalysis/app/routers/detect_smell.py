@@ -62,6 +62,42 @@ async def detect_call_graph(
                     result = detect_static_with_graph(temp_dir, is_directory=True)
                     smells = result.get("response", [])
                     graph = result.get("call_graph")
+                    
+
+                    temp_dir_real = os.path.realpath(temp_dir)
+                    
+                    if graph and "nodes" in graph:
+                        for node in graph["nodes"]:
+                            if "file_path" in node:
+                                n_path = node["file_path"]
+                                if n_path.startswith(temp_dir):
+                                    node["file_path"] = os.path.relpath(n_path, temp_dir)
+                                elif os.path.realpath(n_path).startswith(temp_dir_real):
+                                     node["file_path"] = os.path.relpath(os.path.realpath(n_path), temp_dir_real)
+
+                    for smell in smells:
+                        f_key = "filename" if "filename" in smell else "file"
+                        
+                        if f_key in smell and smell[f_key]:
+                             original_path = smell[f_key]
+                             original_path_real = os.path.realpath(original_path)
+                             
+                             rel_path = None
+                             if original_path.startswith(temp_dir):
+                                 rel_path = os.path.relpath(original_path, temp_dir)
+                             elif original_path_real.startswith(temp_dir_real):
+                                 rel_path = os.path.relpath(original_path_real, temp_dir_real)
+                                 
+                             if rel_path:
+                                 smell["file"] = rel_path 
+                                 smell["filename"] = rel_path
+                        else:
+                             pass
+                    
+                    if graph and "nodes" in graph:
+                        for node in graph["nodes"]:
+                            if "file_path" in node and node["file_path"].startswith(temp_dir):
+                                node["file_path"] = os.path.relpath(node["file_path"], temp_dir)
             else:
                  # Single File
                  # Read content back for sniffers if needed, or pass path
@@ -73,6 +109,15 @@ async def detect_call_graph(
                  smells = result.get("response", [])
                  graph = result.get("call_graph")
 
+                 if graph and "nodes" in graph:
+                     for node in graph["nodes"]:
+
+                         if "file_path" in node:
+                             if node["file_path"] == tmp_path:
+                                 node["file_path"] = file.filename
+                             else:
+                                 node["file_path"] = os.path.basename(node["file_path"])
+
         finally:
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
@@ -82,6 +127,10 @@ async def detect_call_graph(
         result = detect_static_with_graph(code_snippet)
         smells = result.get("response", [])
         graph = result.get("call_graph")
+        
+        if graph and "nodes" in graph:
+            for node in graph["nodes"]:
+                node["file_path"] = "snippet.py"
     
     else:
         return DetectCallGraphResponse(success=False, smells=None, call_graph=None)

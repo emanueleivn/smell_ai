@@ -54,7 +54,32 @@ interface GraphEdge {
     call_sites: CallSite[];
 }
 
-// Modal Component
+const CodeBlock = ({ code, smells, startLine }: { code: string, smells: Smell[], startLine: number }) => {
+    const lines = code.split('\n');
+
+    return (
+        <pre className="font-mono text-xs text-gray-800 bg-white p-2 border rounded overflow-x-auto">
+            {lines.map((lineContent, index) => {
+                const currentLine = startLine + index;
+                // Check if this line has any smell
+                const smellOnLine = smells.find(s => s.line === currentLine);
+
+                return (
+                    <div
+                        key={index}
+                        className={`${smellOnLine ? 'bg-red-100' : ''} flex`}
+                    >
+                        <span className="text-gray-400 w-8 flex-shrink-0 select-none text-right mr-2 border-r pr-1">
+                            {currentLine}
+                        </span>
+                        <span className="flex-grow">{lineContent}</span>
+                    </div>
+                );
+            })}
+        </pre>
+    );
+};
+
 const Modal = ({ isOpen, onClose, title, children }: any) => {
     if (!isOpen) return null;
     return (
@@ -71,7 +96,7 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
                         &times;
                     </button>
                 </div>
-                <div className="p-6 overflow-y-auto flex-grow">{children}</div>
+                <div className="p-6 overflow-y-auto flex-grow bg-white">{children}</div>
                 <div className="p-4 border-t bg-gray-50 flex justify-end">
                     <button
                         onClick={onClose}
@@ -227,7 +252,31 @@ export default function CallGraphPage() {
 
         const rfNodes: Node[] = gNodes.map((node) => {
             const nodeSmells = smellList.filter(
-                (s) => s.function_name === node.name || (s.line >= node.start_line && s.line <= node.end_line)
+                (s) => {
+                    const nodePathNormalized = node.file_path ? node.file_path.normalize('NFC') : "";
+                    const smellRaw = s as any;
+
+                    if (smellRaw.file) {
+                        const smellFileNormalized = smellRaw.file.normalize('NFC');
+
+                        const match = (smellFileNormalized === nodePathNormalized) ||
+                            (nodePathNormalized.endsWith(smellFileNormalized)) ||
+                            (smellFileNormalized.endsWith(nodePathNormalized));
+
+                        if (!match) return false;
+                    } else if (smellRaw.filename) {
+                        const smellFileNormalized = smellRaw.filename.normalize('NFC');
+
+                        if (!nodePathNormalized.endsWith(smellFileNormalized) && !smellFileNormalized.endsWith(nodePathNormalized)) {
+                            return false;
+                        }
+                    } else {
+
+                        return false;
+                    }
+
+                    return s.function_name === node.name || (s.line >= node.start_line && s.line <= node.end_line);
+                }
             );
             const hasSmell = nodeSmells.length > 0;
 
@@ -283,6 +332,7 @@ export default function CallGraphPage() {
 
                         <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors relative">
                             <input
+                                data-testid="file-upload-input"
                                 type="file"
                                 accept=".py,.zip"
                                 onChange={(e) => {
@@ -361,9 +411,23 @@ export default function CallGraphPage() {
                             <Controls />
                             <Background color="#aaa" gap={16} />
                         </ReactFlow>
-                        <div className="absolute top-4 right-4 bg-white p-3 rounded shadow text-sm text-gray-600 opacity-90">
-                            <p>Click on nodes to see details & smells.</p>
-                            <p>Click on edges to see call sites.</p>
+                        <div className="absolute top-4 right-4 bg-white p-4 rounded-lg shadow-md border border-gray-200 opacity-95">
+                            <h4 className="font-bold text-gray-700 mb-2 border-b pb-1">Legend</h4>
+                            <div className="flex items-center mb-1">
+                                <div className="w-4 h-4 rounded bg-[#fee2e2] mr-2 border border-[#ef4444]"></div>
+                                <span className="text-sm text-gray-600">Smell Detected</span>
+                            </div>
+                            <div className="flex items-center mb-3">
+                                <div className="w-4 h-4 rounded bg-[#f0f9ff] mr-2 border border-[#7dd3fc]"></div>
+                                <span className="text-sm text-gray-600">No smells</span>
+                            </div>
+                            <div className="text-sm font-semibold text-gray-700">
+                                Total Smells: <span className="text-red-600">{smells.length}</span>
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 pt-2 border-t">
+                                <p>Click node for details</p>
+                                <p>Click edge for calls</p>
+                            </div>
                         </div>
                     </div>
 
@@ -395,20 +459,13 @@ export default function CallGraphPage() {
                             </div>
                             <div className="bg-gray-100 p-3 rounded font-mono text-sm border-l-4 border-blue-400">
                                 <p className="mb-2 font-bold text-gray-600">Source Code (Lines {selectedNodeData.raw.start_line} - {selectedNodeData.raw.end_line}):</p>
-                                <div className="bg-white p-2 border rounded text-xs text-gray-800 overflow-x-auto">
+                                <div className="">
                                     {selectedNodeData.raw.source_code ? (
-                                        selectedNodeData.raw.source_code.split('\n').map((line: string, index: number) => {
-                                            const currentLine = selectedNodeData.raw.start_line + index;
-                                            const hasSmell = selectedNodeData.smells.some((s: Smell) => s.line === currentLine);
-                                            return (
-                                                <div key={index} className={`flex ${hasSmell ? "bg-red-100" : ""}`}>
-                                                    <span className={`w-8 text-right mr-3 select-none ${hasSmell ? "text-red-500 font-bold" : "text-gray-400"}`}>
-                                                        {currentLine}
-                                                    </span>
-                                                    <pre className="whitespace-pre-wrap flex-1">{line}</pre>
-                                                </div>
-                                            );
-                                        })
+                                        <CodeBlock
+                                            code={selectedNodeData.raw.source_code}
+                                            smells={selectedNodeData.smells}
+                                            startLine={selectedNodeData.raw.start_line}
+                                        />
                                     ) : (
                                         <span className="italic text-gray-400">Source code not available</span>
                                     )}
