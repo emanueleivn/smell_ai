@@ -330,3 +330,10 @@ class ProjectAnalyzer:
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump(graph_data, f, indent=4)
         print(f"Call graph saved to {output_file}")
+
+        # Also save DOT format
+        dot_content = generator.generate_dot(filenames)
+        dot_output_file = os.path.join(self.output_path, "call_graph.dot")
+        with open(dot_output_file, "w", encoding="utf-8") as f:
+            f.write(dot_content)
+        print(f"Call graph DOT saved to {dot_output_file}")

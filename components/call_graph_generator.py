@@ -63,6 +63,37 @@ class CallGraphGenerator:
         )
         return asdict(graph)
 
+    def generate_dot(self, file_paths: List[str]) -> str:
+        """
+        Generates the call graph in DOT format.
+        """
+        # Ensure graph is built (re-using generate logic if needed, but assuming generate was called or we reuse the maps)
+        # Actually generate() builds the maps. If we want to generate DOT, we should make sure we have the data.
+        # But usually one calls generate() first. Or we can just use the internal maps if they are populated.
+        # Let's assume the user calls generate() first or we can just run the scan if empty.
+        
+        if not self.nodes_map and not self.edges_map:
+             self.generate(file_paths)
+
+        dot_lines = ["digraph CallGraph {", "    node [shape=box];"]
+        
+        # Nodes
+        for node in self.nodes_map.values():
+            # Escape quotes in label
+            label = f"{node.name}\\n({node.type})"
+            dot_lines.append(f'    "{node.id}" [label="{label}"];')
+
+        # Edges
+        for edge in self.edges_map.values():
+            # Add edge with count of calls if multiple
+            label = ""
+            if len(edge.call_sites) > 1:
+                label = f' [label="{len(edge.call_sites)}"]'
+            dot_lines.append(f'    "{edge.source}" -> "{edge.target}"{label};')
+        
+        dot_lines.append("}")
+        return "\n".join(dot_lines)
+
     def _get_module_info(self, file_path: str):
         try:
             rel_path = os.path.relpath(file_path, self.project_root)
@@ -110,31 +141,65 @@ class CallGraphGenerator:
                 self.module = module
                 self.package = package
                 self.file_path = file_path
+                self.scope_stack = []
+                # Helper to determine if we are directly inside a class (for "method" type)
+                self.in_class_stack = [] 
+
+            def _get_current_id_prefix(self):
+                # e.g. "my_module.MyClass"
+                if not self.scope_stack:
+                    return self.module
+                return f"{self.module}.{'.'.join(self.scope_stack)}"
 
             def visit_FunctionDef(self, node):
-                # Top level function
-                node_id = f"{self.module}.{node.name}"
-                self.generator._add_node(node_id, node.name, self.module, self.package, "function", self.file_path, node.lineno, node.end_lineno)
+                self._handle_function(node)
+
+            def visit_AsyncFunctionDef(self, node):
+                self._handle_function(node)
+
+            def _handle_function(self, node):
+                prefix = self._get_current_id_prefix()
+                node_id = f"{prefix}.{node.name}"
+                
+                # Determine type
+                is_method = self.in_class_stack[-1] if self.in_class_stack else False
+                node_type = "method" if is_method else "function"
+
+                self.generator._add_node(node_id, node.name, self.module, self.package, node_type, self.file_path, node.lineno, node.end_lineno)
+                
+                # Simplified mapping (last definition wins for partial name)
                 self.generator.function_definitions[node.name] = node_id 
+                # Also store full ID map
                 self.generator.function_definitions[node_id] = node_id
-                # Do NOT compare self in generic_visit if we don't want inner functions
-                # but we usually do. However, inner functions shouldn't be top level nodes unless we distinct them
-                # For now, let's keep it simple: visit children
+
+                # Enter scope
+                self.scope_stack.append(node.name)
+                # Inside a function, we are NOT directly in a class anymore (even if nested)
+                self.in_class_stack.append(False)
+                
                 self.generic_visit(node)
+                
+                # Exit scope
+                self.in_class_stack.pop()
+                self.scope_stack.pop()
 
             def visit_ClassDef(self, node):
-                class_id = f"{self.module}.{node.name}"
+                prefix = self._get_current_id_prefix()
+                class_id = f"{prefix}.{node.name}"
                 
-                # Visit methods explicitly
-                for item in node.body:
-                    if isinstance(item, ast.FunctionDef):
-                        method_id = f"{class_id}.{item.name}"
-                        self.generator._add_node(method_id, item.name, self.module, self.package, "method", self.file_path, item.lineno, item.end_lineno)
-                        self.generator.function_definitions[item.name] = method_id 
-                        self.generator.function_definitions[method_id] = method_id
+                # We could add the class itself as a node if needed, but the original code 
+                # didn't seem to treat classes as semantic nodes in the call graph (only methods/functions).
+                # However, for correct scoping, we must traverse it.
                 
+                # Enter scope
+                self.scope_stack.append(node.name)
+                self.in_class_stack.append(True)
                 
-                pass 
+                self.generic_visit(node)
+                
+                self.in_class_stack.pop()
+                self.scope_stack.pop()
+
 
         visitor = DefinitionVisitor(self, module, package, file_path)
         visitor.visit(tree)
@@ -142,9 +207,11 @@ class CallGraphGenerator:
     def _add_node(self, id, name, module, package, type, file_path, start_line, end_line):
         if id not in self.nodes_map:
             source = self._get_source_segment(file_path, start_line, end_line)
+            # Default type if missing (should not happen with new logic)
             self.nodes_map[id] = Node(id, name, module, package, type, file_path, start_line, end_line, source)
 
     def _add_edge(self, source, target, file_path, line):
+        # Allow self-loops as per standard call graph definitions
         key = (source, target)
         if key not in self.edges_map:
             self.edges_map[key] = Edge(source=source, target=target)
@@ -161,16 +228,18 @@ class CallGraphGenerator:
 
         module, package = self._get_module_info(file_path)
         
-        # Track current scope (function/method being analyzed)
-        current_scope = None
-
         class CallVisitor(ast.NodeVisitor):
             def __init__(self, generator, current_module):
                 self.generator = generator
                 self.current_module = current_module
-                self.scope_stack = [] # Stack of function names (ids)
+                self.scope_stack = [] 
 
             def visit_FunctionDef(self, node):
+                self.scope_stack.append(node.name)
+                self.generic_visit(node)
+                self.scope_stack.pop()
+
+            def visit_AsyncFunctionDef(self, node):
                 self.scope_stack.append(node.name)
                 self.generic_visit(node)
                 self.scope_stack.pop()
@@ -184,10 +253,10 @@ class CallGraphGenerator:
                 if not self.scope_stack:
                     return 
                 
-                # Determine source ID (Simplified)
+                # Determine source ID
                 source_suffix = ".".join(self.scope_stack)
                 source_id = f"{self.current_module}.{source_suffix}"
-                
+            
                 # Resolving Target
                 target_id = self._resolve_target(node)
                 if target_id and target_id in self.generator.nodes_map:
@@ -197,21 +266,23 @@ class CallGraphGenerator:
                 # Case 1: simple function call func() or Class()
                 if isinstance(node.func, ast.Name):
                     name = node.func.id
-                    candidate = f"{self.current_module}.{name}"
                     
-                    # Exact local match
+                    # 1a. Check exact match absolute path: module.name
+                    candidate = f"{self.current_module}.{name}"
                     if candidate in self.generator.nodes_map:
                         return candidate
                     
-                    # Heuristic: Suffix match (e.g. imported function)
-                    # Also checking for Class instantiation (linking to __init__)
+                    # 1b. Check suffix match (imported)
+                    if name in self.generator.function_definitions:
+                        return self.generator.function_definitions[name]
+                    
+                    # 1c. Scan all nodes for suffixes (fallback)
                     for nid in self.generator.nodes_map:
                         if nid.endswith(f".{name}"):
                             return nid
                         if nid.endswith(f".{name}.__init__"):
                              return nid
 
-                            
                 # Case 2: Attribute call obj.method()
                 elif isinstance(node.func, ast.Attribute):
                     method_name = node.func.attr
@@ -219,17 +290,28 @@ class CallGraphGenerator:
                     # 2a. Self.method()
                     if isinstance(node.func.value, ast.Name):
                         if node.func.value.id == "self":
-                            if len(self.scope_stack) >= 2:
-                                class_name = self.scope_stack[-2]
-                                candidate = f"{self.current_module}.{class_name}.{method_name}"
+                            # Try from nearest parent upwards
+                            current_prefix = f"{self.current_module}.{'.'.join(self.scope_stack[:-1])}" # Pop method name
+                            candidate = f"{current_prefix}.{method_name}"
+                            if candidate in self.generator.nodes_map:
                                 return candidate
-                    
+                            
+                            # Fallback: traverse up the stack?
+                            # For now, just continue to other heuristics.
+
                     # 2b. Heuristic: Unique Method Name Analysis
-                    # If 'method_name' exists in EXACTLY ONE node in the entire graph, link it.
-                    # This helps resolve instance.method() calls without full type inference.
                     matches = [nid for nid in self.generator.nodes_map if nid.endswith(f".{method_name}")]
                     if len(matches) == 1:
                         return matches[0]
+                    
+                    # 2c. If multiple matches, assume match if obj name matches class name part
+                    if isinstance(node.func.value, ast.Name):
+                         obj_name = node.func.value.id
+                         # Global search for string end pattern "obj_name.method_name"
+                         suffix = f"{obj_name}.{method_name}"
+                         for nid in self.generator.nodes_map:
+                             if nid.endswith(suffix):
+                                 return nid
 
                 return None
 

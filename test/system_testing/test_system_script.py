@@ -342,6 +342,120 @@ TEST_CASES: Dict[str, TestConfig] = {
         "timeout_test": True,
         "expected_error": True,
     },
+
+    # ================== CALL GRAPH CASES (TC_21..TC_28) ==================
+
+    # TC_21
+    # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1 (generico),
+    # ME2, EP2, NW0, RES1, OUT1, CG1
+    "TC_21": {
+        "description": "Analisi singolo progetto con Call Graph: 1 code smell generico.",
+        "expected_error": False,
+        "expected_smells": 1,
+        "parallel": False,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_22
+    # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS2 (API-specific),
+    # ME2, EP2, NW0, RES1, OUT1, CG1
+    "TC_22": {
+        "description": "Analisi singolo progetto con Call Graph: 1 code smell API-specific.",
+        "expected_error": False,
+        "expected_smells": 1,
+        "parallel": False,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_23
+    # NF2, EF1, NP1, SP1, NCS3 (>1), TCS1 (generici),
+    # ME2, EP2, NW0, RES1, OUT1, CG1
+    "TC_23": {
+        "description": "Analisi singolo progetto con Call Graph: >1 code smell generico.",
+        "expected_error": False,
+        "expected_smells": ">=2",
+        "parallel": False,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_24
+    # NF2, EF1, NP1, SP1, NCS3 (>1), TCS2 (API-specific),
+    # ME2, EP2, NW0, RES1, OUT1, CG1
+    "TC_24": {
+        "description": "Analisi singolo progetto con Call Graph: >1 code smell API-specific.",
+        "expected_error": False,
+        "expected_smells": ">=2",
+        "parallel": False,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_25
+    # NF2, EF1, NP1, SP1, NCS3 (>1), TCS3 (misto),
+    # ME2, EP2, NW0, RES1, OUT1, CG1
+    "TC_25": {
+        "description": "Analisi singolo progetto con Call Graph: >1 code smell misto.",
+        "expected_error": False,
+        "expected_smells": ">=2",
+        "parallel": False,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_26
+    # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
+    # ME2, EP1, NW2 (<5), RES1, OUT1, CG1
+    "TC_26": {
+        "description": "Analisi parallela con Call Graph: 1 code smell generico, walkers < 5.",
+        "expected_error": False,
+        "expected_smells": 1,
+        "parallel": True,
+        "max_walkers": 3,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_27
+    # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
+    # ME2, EP1, NW3 (=5), RES1, OUT1, CG1
+    "TC_27": {
+        "description": "Analisi parallela con Call Graph: 1 code smell generico, walkers = 5.",
+        "expected_error": False,
+        "expected_smells": 1,
+        "parallel": True,
+        "max_walkers": 5,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
+
+    # TC_28
+    # NF2, EF1, NP1, SP1, NCS2 (1 smell), TCS1,
+    # ME2, EP1, NW4 (>5), RES1, OUT1, CG1
+    "TC_28": {
+        "description": "Analisi parallela con Call Graph: 1 code smell generico, walkers > 5.",
+        "expected_error": False,
+        "expected_smells": 1,
+        "parallel": True,
+        "max_walkers": 6,
+        "resume": True,
+        "multiple": False,
+        "callgraph": True,
+    },
 }
 
 
@@ -386,7 +500,7 @@ def list_test_cases() -> List[str]:
             number = int(name.split("_")[-1])
         except ValueError:
             continue
-        if 1 <= number <= 20:
+        if 1 <= number <= 28:
             cases.append(name)
 
     cases.sort(key=lambda x: int(x.split("_")[-1]))
@@ -545,6 +659,9 @@ def test_system_case(tc_dir: str) -> None:
     if config.get("multiple"):
         cmd.append("--multiple")
 
+    if config.get("callgraph"):
+        cmd.append("--callgraph")
+
     # Esecuzione dal root del repository (adatta se necessario)
     repo_root = Path(__file__).resolve().parents[2]
 
@@ -614,6 +731,13 @@ def test_system_case(tc_dir: str) -> None:
         # expected_smells è un intero > 0
         assert smell_count == expected_smells, (
             f"{tc_dir}: attesi {expected_smells} smell, trovati {smell_count}."
+        )
+
+    # 7) Verifica Call Graph se richiesto
+    if config.get("callgraph"):
+        expected_cg = output_dir / "call_graph.json"
+        assert expected_cg.exists(), (
+            f"{tc_dir}: callgraph=True ma il file {expected_cg} non è stato generato."
         )
 
 
