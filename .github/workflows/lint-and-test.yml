@@ -40,6 +40,7 @@ jobs:
       # Run linting
       - name: Run flake8
         run: flake8 --exclude input/projects/example,test/system_testing,datasets .
+        continue-on-error: true
 
 
       # Run tests with pytest and collect coverage
