@@ -1,3 +1,4 @@
+[![codecov](https://codecov.io/gh/Antonio-Caiazzo/smell_ai/graph/badge.svg?token=4VA4L00YX8)](https://codecov.io/gh/Antonio-Caiazzo/smell_ai)
 <p align="center">
   <img src="./code_smile_logo.png" alt="CodeSmile" width="200"/>
 </p>
