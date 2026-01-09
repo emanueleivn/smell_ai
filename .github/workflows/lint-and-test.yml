@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - feature/oop-refactor
+      - flake
   pull_request:
 
 jobs:
